@@ -11,6 +11,7 @@
     "@dcloudio/uni-ui": "^1.5.7",
     "axios": "^1.4.0",
     "countup.js": "^2.7.0",
+    "dayjs": "^1.11.13",
     "echarts": "^5.4.3",
     "pinia": "^2.2.6",
     "vant": "^4.6.2",
@@ -19,8 +20,8 @@
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^4.2.3",
-    "vite": "^4.4.9",
+    "postcss-px-to-viewport": "^1.1.1",
     "sass": "^1.66.1",
-    "postcss-px-to-viewport": "^1.1.1"
+    "vite": "^4.4.9"
   }
 }

@@ -1,171 +1,164 @@
 <template>
-  <div class="checkin-container">
-    <div class="header">
-      <div class="user-info">
-        <span>{{ userStore.userInfo.nickname }}</span>
-        <van-button size="small" @click="handleLogout">退出</van-button>
-      </div>
-    </div>
-
-    <div class="checkin-content">
-      <!-- 打卡状态卡片 -->
-      <div class="status-card">
-        <div class="time">{{ currentTime }}</div>
-        <div class="date">{{ currentDate }}</div>
+  <div class="home">
+    <van-nav-bar title="每日打卡" fixed />
+    
+    <div class="content">
+      <!-- 顶部时间 -->
+      <div class="header">
+        <div class="time-display">
+          <div class="time">{{ currentTime }}</div>
+          <div class="date">{{ currentDate }}</div>
+        </div>
+        <van-icon name="setting-o" class="settings-icon" @click="handleLogout" />
       </div>
 
       <!-- 打卡项目 -->
-      <div class="checkin-items">
-        <div 
-          v-for="item in checkinItems" 
-          :key="item.id" 
+      <div class="checkin-grid">
+        <div
+          v-for="item in checkinItems"
+          :key="item.id"
           class="checkin-item"
-          :class="{ checked: item.checked }"
-          @click="handleItemCheckin(item)"
+          @click="handleCheckinClick(item.id)"
         >
-          <van-icon :name="item.icon" class="item-icon" />
-          <div class="item-info">
-            <div class="item-name">{{ item.name }}</div>
-            <div class="item-status">{{ item.checked ? '已完成' : '未完成' }}</div>
+          <div class="item-content">
+            <div class="item-header">
+              <van-icon :name="item.icon" :color="item.color" size="24" />
+              <span class="item-title">{{ item.title }}</span>
+            </div>
+            <div class="progress-circle">
+              <van-circle
+                :rate="item.progress"
+                :color="item.color"
+                :speed="100"
+                :stroke-width="6"
+                size="70px"
+                :layer-color="item.progress === 0 ? '#f5f5f5' : 'rgba(255, 255, 255, 0.35)'"
+              >
+                <template #default>
+                  <span class="progress-text">
+                    <span class="progress-value">{{ item.progress }}%</span>
+                    <span class="progress-label">{{ item.progress === 100 ? '已完成' : '未完成' }}</span>
+                  </span>
+                </template>
+              </van-circle>
+            </div>
           </div>
-          <van-tag 
-            :type="item.checked ? 'success' : 'default'"
-            round
-          >
-            {{ item.checked ? '已打卡' : '打卡' }}
-          </van-tag>
         </div>
-      </div>
-
-      <!-- 打卡统计 -->
-      <div class="stats-card">
-        <div class="stat-item">
-          <div class="value">{{ stats.continuous }}</div>
-          <div class="label">连续打卡</div>
-        </div>
-        <div class="stat-item">
-          <div class="value">{{ stats.monthly }}</div>
-          <div class="label">本月打卡</div>
-        </div>
-        <div class="stat-item">
-          <div class="value">{{ stats.total }}</div>
-          <div class="label">总打卡天数</div>
-        </div>
-      </div>
-
-      <!-- 打卡日历 -->
-      <div class="calendar-card">
-        <h3>打卡记录</h3>
-        <van-calendar 
-          :show-title="false"
-          :poppable="false"
-          :show-confirm="false"
-          :style="{ height: '300px' }"
-          :default-date="new Date()"
-          :formatter="calendarFormatter"
-        />
-      </div>
-
-      <!-- 打卡按钮 -->
-      <div class="action-button">
-        <van-button 
-          round 
-          block 
-          type="primary" 
-          @click="handleCheckin"
-        >
-          立即打卡
-        </van-button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onActivated } from 'vue'
 import { useRouter } from 'vue-router'
-import { showSuccessToast } from 'vant'
 import { useUserStore } from '../stores/user'
 
 const router = useRouter()
 const userStore = useUserStore()
-const currentTime = ref('')
-const currentDate = ref('')
-let timer = null
+
+// 获取当前时间和日期
+const getCurrentTime = () => {
+  const now = new Date()
+  const hours = String(now.getHours()).padStart(2, '0')
+  const minutes = String(now.getMinutes()).padStart(2, '0')
+  return `${hours}:${minutes}`
+}
+
+const getCurrentDate = () => {
+  const now = new Date()
+  return `${now.getMonth() + 1}月${now.getDate()}日`
+}
+
+const currentTime = ref(getCurrentTime())
+const currentDate = ref(getCurrentDate())
 
 // 打卡项目
 const checkinItems = ref([
-  { 
-    id: 1, 
-    name: '灵修', 
-    icon: 'like-o', 
-    checked: false,
-    stats: { continuous: 5, monthly: 12, total: 45 }
+  {
+    id: 'spiritual',
+    title: '灵修打卡',
+    icon: 'smile-o',
+    color: '#1989fa',
+    progress: 0
   },
-  { 
-    id: 2, 
-    name: '练钢琴', 
-    icon: 'music-o', 
-    checked: false,
-    stats: { continuous: 3, monthly: 8, total: 30 }
+  {
+    id: 'piano',
+    title: '练琴打卡',
+    icon: 'music-o',
+    color: '#ff976a',
+    progress: 0
   },
-  { 
-    id: 3, 
-    name: '跑步', 
-    icon: 'fire-o', 
-    checked: false,
-    stats: { continuous: 2, monthly: 10, total: 38 }
+  {
+    id: 'bible',
+    title: '今日读经',
+    icon: 'book-o',
+    color: '#07c160',
+    progress: 0
   },
-  { 
-    id: 4, 
-    name: '学习', 
-    icon: 'book', 
-    checked: false,
-    stats: { continuous: 4, monthly: 15, total: 50 }
+  {
+    id: 'exercise',
+    title: '跑步打卡',
+    icon: 'guide-o',
+    color: '#07c160',
+    progress: 0
   }
 ])
 
-// 打卡统计数据
-const stats = ref({
-  continuous: 3,
-  monthly: 15,
-  total: 45
-})
+// 处理打卡点击
+const handleCheckinClick = (id) => {
+  switch (id) {
+    case 'spiritual':
+      router.push('/checkin-detail')
+      break
+    case 'piano':
+      router.push('/piano-checkin')
+      break
+    case 'bible':
+      router.push('/bible-checkin')
+      break
+    case 'exercise':
+      router.push('/running-checkin')
+      break
+  }
+}
+
+// 更新打卡进度
+const updateProgress = () => {
+  try {
+    const currentDate = new Date().toISOString().split('T')[0]
+
+    // 更新灵修打卡进度
+    const spiritualData = localStorage.getItem('spiritualCheckins')
+    if (spiritualData) {
+      const data = JSON.parse(spiritualData)
+      const todayReading = data.bibleReadings?.[currentDate]
+      checkinItems.value[0].progress = todayReading?.completed ? 100 : 0
+    }
+
+    // 更新练琴打卡进度
+    const pianoRecords = JSON.parse(localStorage.getItem('pianoRecords') || '[]')
+    const todayPiano = pianoRecords.find(record => record.date === currentDate)
+    checkinItems.value[1].progress = todayPiano ? 100 : 0
+
+    // 更新今日读经打卡进度
+    const bibleRecords = JSON.parse(localStorage.getItem('bibleRecords') || '[]')
+    const todayBible = bibleRecords.find(record => record.date === currentDate)
+    checkinItems.value[2].progress = todayBible ? 100 : 0
+
+    // 更新跑步打卡进度
+    const runningRecords = JSON.parse(localStorage.getItem('runningRecords') || '[]')
+    const todayRunning = runningRecords.find(record => record.date === currentDate)
+    checkinItems.value[3].progress = todayRunning ? 100 : 0
+  } catch (error) {
+    console.error('Error updating progress:', error)
+  }
+}
 
 // 更新时间
 const updateTime = () => {
-  const now = new Date()
-  const formatNumber = (n) => n < 10 ? '0' + n : n
-  
-  currentTime.value = `${formatNumber(now.getHours())}:${formatNumber(now.getMinutes())}:${formatNumber(now.getSeconds())}`
-  currentDate.value = `${now.getFullYear()}年${formatNumber(now.getMonth() + 1)}月${formatNumber(now.getDate())}日`
-}
-
-// 处理项目打卡
-const handleItemCheckin = (item) => {
-  if (item.checked) return
-  
-  item.checked = true
-  item.stats.continuous++
-  item.stats.monthly++
-  item.stats.total++
-  
-  // 更新总体统计
-  updateTotalStats()
-  
-  showSuccessToast(`${item.name}打卡成功`)
-  
-  // 这里可以添加实际的打卡API调用
-}
-
-// 更新总体统计
-const updateTotalStats = () => {
-  const checkedItems = checkinItems.value.filter(item => item.checked)
-  if (checkedItems.length > 0) {
-    stats.value.continuous = Math.min(...checkedItems.map(item => item.stats.continuous))
-    stats.value.monthly = Math.floor(checkedItems.map(item => item.stats.monthly).reduce((a, b) => a + b) / checkedItems.length)
-    stats.value.total = Math.floor(checkedItems.map(item => item.stats.total).reduce((a, b) => a + b) / checkedItems.length)
-  }
+  currentTime.value = getCurrentTime()
+  currentDate.value = getCurrentDate()
 }
 
 // 处理登出
@@ -174,188 +167,283 @@ const handleLogout = () => {
   router.push('/login')
 }
 
-// 处理打卡
-const handleCheckin = () => {
-  showSuccessToast('打卡成功')
-  
-  // 这里可以添加实际的打卡API调用
-}
-
-// 日历格式化
-const calendarFormatter = (day) => {
-  // 模拟一些历史打卡数据
-  const checkedDays = [1, 2, 3, 5, 8, 9, 10, 12, 15]
-  const isChecked = checkedDays.includes(day.date.getDate())
-  
-  return {
-    ...day,
-    className: isChecked ? 'checked-day' : '',
-    text: day.text,
-  }
-}
-
 onMounted(() => {
+  updateProgress()
   updateTime()
-  timer = setInterval(updateTime, 1000)
+  // 每分钟更新一次时间
+  setInterval(updateTime, 60000)
 })
 
-onUnmounted(() => {
-  clearInterval(timer)
+// 每次组件激活时更新进度
+onActivated(() => {
+  updateProgress()
 })
 </script>
 
-<style scoped lang="scss">
-.checkin-container {
+<style scoped>
+.home {
   min-height: 100vh;
-  background-color: #f7f8fa;
+  background: linear-gradient(45deg, #1a2a6c, #b21f1f, #fdbb2d);
+  background-size: 400% 400%;
+  animation: gradientBG 15s ease infinite;
+  padding: 46px 16px 16px;
+  position: relative;
+  overflow: hidden;
+}
+
+@keyframes gradientBG {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* 添加动态背景图案 */
+.home::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: 
+    radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.1) 0%, transparent 20%),
+    radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.1) 0%, transparent 20%),
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.1) 0%, transparent 30%);
+  animation: patternMove 20s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes patternMove {
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+  50% {
+    transform: rotate(180deg) scale(1.2);
+  }
+  100% {
+    transform: rotate(360deg) scale(1);
+  }
+}
+
+.content {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  position: relative;
+  z-index: 1;
 }
 
 .header {
-  background: white;
-  padding: 12px 16px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
-  margin-bottom: 16px;
-
-  .user-info {
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    gap: 12px;
-
-    span {
-      font-size: 14px;
-      color: #333;
-    }
-  }
-}
-
-.checkin-content {
-  padding: 16px;
-}
-
-.status-card {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   padding: 24px;
   color: white;
-  text-align: center;
-  margin-bottom: 16px;
-
-  .time {
-    font-size: 32px;
-    font-weight: bold;
-    margin-bottom: 8px;
-  }
-
-  .date {
-    font-size: 14px;
-    opacity: 0.8;
-    margin-bottom: 16px;
-  }
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(20px);
+  border-radius: 24px;
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.1),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+  margin-bottom: 20px;
+  transform: translateZ(0);
+  transition: all 0.3s ease;
 }
 
-.checkin-items {
-  margin-bottom: 16px;
+.header:hover {
+  transform: translateY(-2px);
+  box-shadow: 
+    0 12px 40px rgba(0, 0, 0, 0.15),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.3);
+}
+
+.time-display {
+  text-align: left;
+}
+
+.time {
+  font-size: 42px;
+  font-weight: 800;
+  line-height: 1.1;
+  background: linear-gradient(120deg, #fff, #e0e0e0);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.date {
+  font-size: 16px;
+  opacity: 0.9;
+  margin-top: 6px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+
+.settings-icon {
+  font-size: 28px;
+  color: rgba(255, 255, 255, 0.95);
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 12px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.settings-icon:hover {
+  transform: rotate(90deg);
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.settings-icon:active {
+  transform: rotate(90deg) scale(0.95);
+}
+
+.checkin-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+  padding: 0;
 }
 
 .checkin-item {
-  background: white;
-  border-radius: 12px;
-  padding: 16px;
-  margin-bottom: 12px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  border-radius: 24px;
+  padding: 24px;
+  cursor: pointer;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.1),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+  transform: translateZ(0);
+  position: relative;
+  overflow: hidden;
+}
+
+.checkin-item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(120deg, rgba(255,255,255,0.3), rgba(255,255,255,0));
+  transform: translateX(-100%);
+  transition: transform 0.6s;
+}
+
+.checkin-item:hover {
+  transform: translateY(-4px);
+  box-shadow: 
+    0 12px 40px rgba(0, 0, 0, 0.15),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.6);
+}
+
+.checkin-item:hover::before {
+  transform: translateX(100%);
+}
+
+.checkin-item:active {
+  transform: translateY(-2px);
+}
+
+.item-content {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  position: relative;
+}
+
+.item-header {
   display: flex;
   align-items: center;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
-  transition: all 0.3s ease;
-  cursor: pointer;
-
-  &:active {
-    transform: scale(0.98);
-  }
-
-  &.checked {
-    background: linear-gradient(to right, #f0f9ff, #e6f7ff);
-  }
-
-  .item-icon {
-    font-size: 24px;
-    color: #667eea;
-    margin-right: 16px;
-  }
-
-  .item-info {
-    flex: 1;
-
-    .item-name {
-      font-size: 16px;
-      font-weight: 500;
-      color: #333;
-      margin-bottom: 4px;
-    }
-
-    .item-status {
-      font-size: 12px;
-      color: #999;
-    }
-  }
+  gap: 14px;
 }
 
-.stats-card {
-  background: white;
-  border-radius: 12px;
-  padding: 20px;
+.item-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1a1a1a;
+  letter-spacing: 0.3px;
+}
+
+.progress-circle {
   display: flex;
-  justify-content: space-around;
-  margin-bottom: 16px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
-
-  .stat-item {
-    text-align: center;
-
-    .value {
-      font-size: 24px;
-      font-weight: bold;
-      color: #333;
-      margin-bottom: 4px;
-    }
-
-    .label {
-      font-size: 12px;
-      color: #999;
-    }
-  }
+  justify-content: center;
+  align-items: center;
+  transform: scale(1.1);
+  transition: transform 0.3s ease;
 }
 
-.calendar-card {
-  background: white;
-  border-radius: 12px;
-  padding: 16px;
-  margin-bottom: 16px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+.checkin-item:hover .progress-circle {
+  transform: scale(1.15);
+}
 
-  h3 {
-    margin: 0 0 16px;
+.progress-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.2;
+}
+
+.progress-value {
+  font-size: 18px;
+  font-weight: bold;
+  background: linear-gradient(120deg, #1a2a6c, #b21f1f);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.progress-label {
+  font-size: 13px;
+  color: #666;
+  margin-top: 3px;
+  font-weight: 500;
+}
+
+:deep(.van-nav-bar) {
+  background-color: transparent;
+  --van-nav-bar-title-text-color: white;
+}
+
+:deep(.van-nav-bar__title) {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+:deep(.van-circle) {
+  --van-circle-text-color: #1a1a1a;
+}
+
+/* 添加响应式设计 */
+@media (max-width: 360px) {
+  .checkin-grid {
+    gap: 16px;
+  }
+  
+  .checkin-item {
+    padding: 20px;
+  }
+  
+  .time {
+    font-size: 36px;
+  }
+  
+  .date {
+    font-size: 14px;
+  }
+  
+  .item-title {
     font-size: 16px;
-    color: #333;
-  }
-
-  :deep(.checked-day) {
-    .van-calendar-day {
-      background: #667eea;
-      color: white;
-      border-radius: 4px;
-    }
-  }
-}
-
-.action-button {
-  margin-top: 24px;
-  padding: 0 16px;
-
-  :deep(.van-button--primary) {
-    background: linear-gradient(to right, #667eea, #764ba2);
-    border: none;
-    height: 44px;
   }
 }
 </style>
